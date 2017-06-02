@@ -1,0 +1,8 @@
+[package]
+name = "subset"
+version = "0.1.0"
+authors = ["Aaron Shim <aaron.k.shim@gmail.com>"]
+
+[dependencies]
+docopt = "0.7.0"
+rustc-serialize = "0.3.24"
