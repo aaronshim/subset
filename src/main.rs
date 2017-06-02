@@ -2,6 +2,9 @@ extern crate docopt;
 extern crate rustc_serialize;
 
 use docopt::Docopt;
+use std::fs;
+
+mod directory_files;
 
 /// The Docopt usage string
 const USAGE: &'static str = "
@@ -31,4 +34,17 @@ fn main() {
                             .unwrap_or_else(|e| e.exit());
 
     println!("Comparing {} with {}", args.arg_dir1, args.arg_dir2);
+
+    // Make sure both of our inputs are valid directories
+    let paths1 = fs::read_dir(args.arg_dir1).expect("Directory cannot be read!");
+    let paths2 = fs::read_dir(args.arg_dir2).expect("Directory cannot be read!");
+
+    // just to make sure that we can display the results of the directory read
+    for path in paths1 {
+        println!("In first directory: {}", path.unwrap().path().display());
+    }
+
+    for path in paths2 {
+        println!("In second directory: {}", path.unwrap().path().display());
+    }
 }
