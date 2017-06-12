@@ -47,3 +47,21 @@ impl FileComparable<String> for Md5Comparator {
         }
     }
 }
+
+// To see if our Trait-based strategy pattern will work
+
+pub struct TrivialComparator {
+
+}
+
+impl TrivialComparator {
+    pub fn new() -> TrivialComparator {
+        TrivialComparator {}
+    }
+}
+
+impl FileComparable<u32> for TrivialComparator {
+    fn get_key(&mut self, file_path: &PathBuf) -> Option<u32> {
+        Some(1)
+    }
+}
