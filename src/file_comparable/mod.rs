@@ -32,12 +32,13 @@ impl FileComparable<String> for Md5Comparator {
             Ok(file) => {
                 
                 let mut buf_reader = io::BufReader::new(file);
-                let mut contents = String::new();
+                let mut contents = Vec::new();
 
-                match buf_reader.read_to_string(&mut contents) {
+                match buf_reader.read_to_end(&mut contents) {
                     Ok(_) => {
                         let mut sh = Md5::new();
-                        sh.input_str(&contents);
+                        sh.input(&contents);
+                        //println!("{}", sh.result_str());
                         Some(sh.result_str())
                     },
                     Err(msg) => {println!("Cannot read file {} to calculate hash: {}", file_path.display(), msg); None }
