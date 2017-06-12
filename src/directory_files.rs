@@ -3,19 +3,17 @@ use std::fmt;
 use std::path::PathBuf; // Still unclear on the difference between Path and PathBuf
 use std::collections::vec_deque::VecDeque;
 
-pub struct DirectoryFiles<'a> {
-    root_dir: &'a PathBuf, // We can just borrow a root path so we don't have to make a copy for ourselves-- or is it better design for this struct to own its own copy of the path?
+pub struct DirectoryFiles {
+    root_dir: PathBuf, // I think it's better design for the struct to own its own copy, especially because we aren't making many of these so there's little overhead
     queue: VecDeque<DirEntry>,
     pub num_found_items: u32
-    // what do we put in here? Probably a queue of some sort for our BFS.
-    // Probably a representation of the top level directory
-    // and maybe a count of files found so far?
 }
 
-impl<'a> DirectoryFiles<'a> {
+impl DirectoryFiles {
     pub fn new(root_dir: &PathBuf) -> DirectoryFiles {
-        let mut df = DirectoryFiles { root_dir: root_dir, queue: VecDeque::new(), num_found_items: 0 };
-        df.enqueue(root_dir);
+        // The struct will make and keep its own copy of the root directory it was set loose on
+        let mut df = DirectoryFiles { root_dir: root_dir.clone(), queue: VecDeque::new(), num_found_items: 0 };
+        df.enqueue(&root_dir);
         df
     }
 
@@ -34,7 +32,7 @@ impl<'a> DirectoryFiles<'a> {
 }
 
 // Breadth-first trasversal popping off files one at a time
-impl<'a> Iterator for DirectoryFiles<'a> {
+impl Iterator for DirectoryFiles {
     // may have to be a different representation of file names?
     type Item = DirEntry;
 
@@ -56,7 +54,7 @@ impl<'a> Iterator for DirectoryFiles<'a> {
 }
 
 // Pretty-printing state
-impl<'a> fmt::Display for DirectoryFiles<'a> {
+impl fmt::Display for DirectoryFiles {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} items found under directory {}", self.num_found_items, self.root_dir.display())
     }
