@@ -20,6 +20,7 @@ Common options:
 ";
 
 // We should think about moving away from DocOpt soon since it uses RustcDecodable, whcih is deprecated in favor of serde?
+/// Parsing comand line arguments here
 #[derive(Debug, RustcDecodable)]
 struct Args {
     arg_dir1: String,
