@@ -3,8 +3,10 @@ extern crate rustc_serialize;
 
 use docopt::Docopt;
 use std::fs;
+use std::path::PathBuf;
 
 mod directory_files;
+use directory_files::*;
 
 /// The Docopt usage string
 const USAGE: &'static str = "
@@ -37,15 +39,21 @@ fn main() {
     println!("Comparing {} with {}", args.arg_dir1, args.arg_dir2);
 
     // Make sure both of our inputs are valid directories
-    let paths1 = fs::read_dir(args.arg_dir1).expect("Directory cannot be read!");
-    let paths2 = fs::read_dir(args.arg_dir2).expect("Directory cannot be read!");
+    fs::read_dir(&args.arg_dir1).expect("Directory cannot be read!");
+    fs::read_dir(&args.arg_dir2).expect("Directory cannot be read!");
 
     // just to make sure that we can display the results of the directory read
-    for path in paths1 {
-        println!("In first directory: {}", path.unwrap().path().display());
+    let dirpath1 = PathBuf::from(&args.arg_dir1);
+    let mut iter1 = DirectoryFiles::new(&dirpath1); // mut needed for .by_ref
+    for path in iter1.by_ref() { // retain ownership so we can print final state
+        println!("In first directory: {}", path.path().display());
     }
+    println!("End state: {}", iter1);
 
-    for path in paths2 {
-        println!("In second directory: {}", path.unwrap().path().display());
+    let dirpath2 = PathBuf::from(&args.arg_dir2);
+    let mut iter2 = DirectoryFiles::new(&dirpath2);
+    for path in iter2.by_ref() {
+        println!("In second directory: {}", path.path().display());
     }
+    println!("End state: {}", iter2);
 }
