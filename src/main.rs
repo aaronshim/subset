@@ -2,11 +2,15 @@ extern crate docopt;
 extern crate rustc_serialize;
 
 use docopt::Docopt;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
 mod directory_files;
 use directory_files::*;
+
+mod file_comparable;
+use file_comparable::*;
 
 /// The Docopt usage string
 const USAGE: &'static str = "
@@ -14,6 +18,12 @@ Usage: subset [-q | -v] <dir1> <dir2>
        subset --help
 
 subset lets you compare two directory structures.
+
+We are going to check whether the files in dir1 are a subset of the files in dir2, regardless of directory structure.
+
+We are going to check to see that every file under the directory structure in dir1 must be present somewhere in the dir2 directory structure, regardless of where in the directory structure or definitions of equality.
+
+There are multiple definitions of file equality that you can specify using flags, but the default is a MD5 hash of the contents of the file. It is conceivable that you can define a custom equality strategy that relies on other parameters, such as file name, subdirectory location, metadata, EXIF data, etc. The possibilities are endless.
 
 Common options:
     -h, --help         Show this usage message.
@@ -42,18 +52,45 @@ fn main() {
     fs::read_dir(&args.arg_dir1).expect("Directory cannot be read!");
     fs::read_dir(&args.arg_dir2).expect("Directory cannot be read!");
 
-    // just to make sure that we can display the results of the directory read
-    let dirpath1 = PathBuf::from(&args.arg_dir1);
-    let mut iter1 = DirectoryFiles::new(&dirpath1); // mut needed for .by_ref
-    for path in iter1.by_ref() { // retain ownership so we can print final state
-        println!("In first directory: {}", path.path().display());
-    }
-    println!("End state: {}", iter1);
+    // We are going to construct a map of comparable -> file for every file in our superset directory
+    let mut superset = BTreeMap::new();
 
-    let dirpath2 = PathBuf::from(&args.arg_dir2);
-    let mut iter2 = DirectoryFiles::new(&dirpath2);
-    for path in iter2.by_ref() {
-        println!("In second directory: {}", path.path().display());
+    let superset_dirpath = PathBuf::from(&args.arg_dir2);
+    let mut superset_iter = DirectoryFiles::new(&superset_dirpath);
+
+    // This should be extensible with other types of comparators
+    let mut comparator = file_comparable::Md5Comparator::new();
+
+    for path in superset_iter.by_ref() {
+        let path = path.path();
+        match comparator.get_key(&path) {
+            Some(hashed) => { superset.insert(hashed, path); },
+            None => {}
+        };
     }
-    println!("End state: {}", iter2);
+    println!("{}", superset_iter);
+
+    // And we are going to check it against every file in the subset directory
+    let mut num_missing = 0;
+    let subset_dirpath = PathBuf::from(&args.arg_dir1);
+    let mut subset_iter = DirectoryFiles::new(&subset_dirpath); // mut needed for .by_ref
+    for path in subset_iter.by_ref() {
+        let path = path.path();
+        match comparator.get_key(&path) {
+            Some(hashed) => {
+                match superset.get(&hashed) {
+                    Some(_) => {},
+                    None => {
+                        num_missing+=1;
+                        println!("Could not find {} in {}", path.display(), superset_dirpath.display());
+                    }
+                }
+            },
+            None => {}
+        };
+    }
+    println!("{}", subset_iter);
+
+    // Final state
+    println!("We are missing {} files in {}", num_missing, superset_dirpath.display());
 }

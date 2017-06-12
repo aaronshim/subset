@@ -56,6 +56,6 @@ impl Iterator for DirectoryFiles {
 // Pretty-printing state
 impl fmt::Display for DirectoryFiles {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} items found under directory {}", self.num_found_items, self.root_dir.display())
+        write!(f, "{} items checked under directory {}", self.num_found_items, self.root_dir.display())
     }
 }

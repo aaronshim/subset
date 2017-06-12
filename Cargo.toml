@@ -6,3 +6,4 @@ authors = ["Aaron Shim <aaron.k.shim@gmail.com>"]
 [dependencies]
 docopt = "0.7.0"
 rustc-serialize = "0.3.24"
+rust-crypto = "0.2.36"
