@@ -10,7 +10,12 @@ use self::crypto::digest::Digest;
 
 pub trait FileComparable<T> {
     fn get_key(&mut self, file: &PathBuf) -> Option<T> where T : Ord;
-    //fn compose(&mut self, &mut U) -> V where U : FileComparable<T, U, V>, V : FileComparable<T, U, V>;
+}
+
+// Generic trait to compose two comprators together (because we should be able to come up with an ordered set out of the product of two ordered sets.)
+// It's a bonus you can add on top of just being a comparator.
+pub trait FileComparableComposable<S, T, U, V> : FileComparable<S> {
+    fn compose(&mut self, other: &mut U, file: &PathBuf) -> Option<V> where S : Ord, T : Ord, U : FileComparable<T>, V : Ord;
 }
 
 // We should move this out to a submodule, maybe? But I can't figure out Rust's module system :()
