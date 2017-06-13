@@ -57,24 +57,20 @@ fn main() {
     // Main logic
     // (We would ideally DRY-out the line that calls the compare function, but because then the let binding would need to hold FileComparable's of different types, it's hard to do.)
     match args.flag_trivial {
-        true => {
-            let mut comparator = file_comparable::TrivialComparator::new();
-            compare(&mut comparator, &args.arg_dir1, &args.arg_dir2);
-        }
-        _ => {
-            let mut comparator = file_comparable::Md5Comparator::new();
-            compare(&mut comparator, &args.arg_dir1, &args.arg_dir2);
-        }
+        true => compare(file_comparable::TrivialComparator::new, &args.arg_dir1, &args.arg_dir2),
+        _ => compare(file_comparable::Md5Comparator::new, &args.arg_dir1, &args.arg_dir2)
     }
 }
 
 // We are extracting the main logic to this function, where the generic types will not interfere
-fn compare<K, T>(comparator: &mut T, dir1: &String, dir2: &String) where K: Ord, T : FileComparable<K> {
+fn compare<K, T, F>(comparator_cons: F, dir1: &String, dir2: &String) where K: Ord, T : FileComparable<K>, F: Fn() -> T {
     // We are going to construct a map of comparable -> file for every file in our superset directory
     let mut superset = BTreeMap::new();
 
     let superset_dirpath = PathBuf::from(&dir2);
     let mut superset_iter = DirectoryFiles::new(&superset_dirpath);
+
+    let mut comparator = comparator_cons();
 
     for path in superset_iter.by_ref() {
         let path = path.path();
