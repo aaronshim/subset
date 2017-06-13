@@ -14,7 +14,7 @@ use file_comparable::*;
 
 /// The Docopt usage string
 const USAGE: &'static str = "
-Usage: subset [-q | -v] <dir1> <dir2>
+Usage: subset [-q | -v] [-t] <dir1> <dir2>
        subset --help
 
 subset lets you compare two directory structures.
@@ -29,6 +29,7 @@ Common options:
     -h, --help         Show this usage message.
     -q, --quiet        Do not print all mappings.
     -v, --verbose      Print all mappings.
+    -t, --trivial      Will swap out the MD5 comparison for a trivial comparison (everything is equal). (This is to test extensibility.)
 ";
 
 // We should think about moving away from DocOpt soon since it uses RustcDecodable, whcih is deprecated in favor of serde?
@@ -38,7 +39,8 @@ struct Args {
     arg_dir1: String,
     arg_dir2: String,
     flag_quiet: bool,
-    flag_verbose: bool
+    flag_verbose: bool,
+    flag_trivial: bool
 }
 
 fn main() {
@@ -52,14 +54,27 @@ fn main() {
     fs::read_dir(&args.arg_dir1).expect("Directory cannot be read!");
     fs::read_dir(&args.arg_dir2).expect("Directory cannot be read!");
 
+    // Main logic
+    // (We would ideally DRY-out the line that calls the compare function, but because then the let binding would need to hold FileComparable's of different types, it's hard to do.)
+    match args.flag_trivial {
+        true => {
+            let mut comparator = file_comparable::TrivialComparator::new();
+            compare(&mut comparator, &args.arg_dir1, &args.arg_dir2);
+        }
+        _ => {
+            let mut comparator = file_comparable::Md5Comparator::new();
+            compare(&mut comparator, &args.arg_dir1, &args.arg_dir2);
+        }
+    }
+}
+
+// We are extracting the main logic to this function, where the generic types will not interfere
+fn compare<K, T>(comparator: &mut T, dir1: &String, dir2: &String) where K: Ord, T : FileComparable<K> {
     // We are going to construct a map of comparable -> file for every file in our superset directory
     let mut superset = BTreeMap::new();
 
-    let superset_dirpath = PathBuf::from(&args.arg_dir2);
+    let superset_dirpath = PathBuf::from(&dir2);
     let mut superset_iter = DirectoryFiles::new(&superset_dirpath);
-
-    // This should be extensible with other types of comparators
-    let mut comparator = file_comparable::Md5Comparator::new();
 
     for path in superset_iter.by_ref() {
         let path = path.path();
@@ -72,7 +87,7 @@ fn main() {
 
     // And we are going to check it against every file in the subset directory
     let mut num_missing = 0;
-    let subset_dirpath = PathBuf::from(&args.arg_dir1);
+    let subset_dirpath = PathBuf::from(&dir1);
     let mut subset_iter = DirectoryFiles::new(&subset_dirpath); // mut needed for .by_ref
     for path in subset_iter.by_ref() {
         let path = path.path();

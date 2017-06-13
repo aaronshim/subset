@@ -15,9 +15,7 @@ pub trait FileComparable<T> {
 
 // We should move this out to a submodule, maybe? But I can't figure out Rust's module system :()
 
-pub struct Md5Comparator {
-
-}
+pub struct Md5Comparator;
 
 impl Md5Comparator {
     pub fn new() -> Md5Comparator {
@@ -51,9 +49,7 @@ impl FileComparable<String> for Md5Comparator {
 
 // To see if our Trait-based strategy pattern will work
 
-pub struct TrivialComparator {
-
-}
+pub struct TrivialComparator;
 
 impl TrivialComparator {
     pub fn new() -> TrivialComparator {
