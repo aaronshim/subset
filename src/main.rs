@@ -12,6 +12,8 @@ use directory_files::*;
 mod file_comparable;
 use file_comparable::*;
 
+mod directory_comparator;
+
 /// The Docopt usage string
 const USAGE: &'static str = "
 Usage: subset [-q | -v] [-t] <dir1> <dir2>
@@ -65,17 +67,6 @@ fn main() {
             let mut md5_comparator = file_comparable::Md5Comparator::new();
             compare(&mut md5_comparator, &args.arg_dir1, &args.arg_dir2)
         }
-    }
-}
-
-/// We need to somehow turn this into a module that has a trait of an object that can tell you all the answers
-mod comparator {
-    use std::collections::BTreeMap;
-    use std::fs;
-    use std::path::PathBuf;
-
-    pub trait DirectoryComparator {
-        fn build_map(dir1: &String, dir2: &String) -> BTreeMap<PathBuf, Option<PathBuf>>;
     }
 }
 

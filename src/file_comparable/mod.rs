@@ -60,6 +60,8 @@ impl TrivialComparator {
 
 impl FileComparable for TrivialComparator {
     type Key = u32;
+    
+    #[allow(unused_variables)]
     fn get_key(&mut self, file_path: &PathBuf) -> Option<u32> {
         Some(1)
     }
