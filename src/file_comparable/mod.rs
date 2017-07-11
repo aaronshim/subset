@@ -8,17 +8,12 @@ use std::path::PathBuf;
 use self::crypto::md5::Md5;
 use self::crypto::digest::Digest;
 
-pub trait FileComparable<T> {
-    fn get_key(&mut self, file: &PathBuf) -> Option<T> where T : Ord;
+pub trait FileComparable {
+    type Key : Ord;
+    fn get_key(&mut self, file: &PathBuf) -> Option<Self::Key>;
 }
 
-// Generic trait to compose two comprators together (because we should be able to come up with an ordered set out of the product of two ordered sets.)
-// It's a bonus you can add on top of just being a comparator.
-pub trait FileComparableComposable<S, T, U, V> : FileComparable<S> {
-    fn compose(&mut self, other: &mut U, file: &PathBuf) -> Option<V> where S : Ord, T : Ord, U : FileComparable<T>, V : Ord;
-}
-
-// We should move this out to a submodule, maybe? But I can't figure out Rust's module system :()
+// We should move this out to a submodule, maybe? But I can't figure out Rust's module system :(
 
 pub struct Md5Comparator;
 
@@ -28,7 +23,8 @@ impl Md5Comparator {
     }
 }
 
-impl FileComparable<String> for Md5Comparator {
+impl FileComparable for Md5Comparator {
+    type Key = String;
     fn get_key(&mut self, file_path: &PathBuf) -> Option<String> {
         // Yuck! There must be some monadic simplification here!
         match fs::File::open(&file_path) {
@@ -62,7 +58,8 @@ impl TrivialComparator {
     }
 }
 
-impl FileComparable<u32> for TrivialComparator {
+impl FileComparable for TrivialComparator {
+    type Key = u32;
     fn get_key(&mut self, file_path: &PathBuf) -> Option<u32> {
         Some(1)
     }
