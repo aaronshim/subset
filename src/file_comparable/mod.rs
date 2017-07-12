@@ -9,7 +9,7 @@ use self::crypto::md5::Md5;
 use self::crypto::digest::Digest;
 
 pub trait FileComparable {
-    type Key : Ord;
+    type Key : Ord; // What might have to happen is that we need to concretize this into an actual type :(
     fn get_key(&mut self, file: &PathBuf) -> Option<Self::Key>;
 }
 

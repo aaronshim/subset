@@ -2,17 +2,17 @@ extern crate docopt;
 extern crate rustc_serialize;
 
 use docopt::Docopt;
-use std::collections::BTreeMap;
 use std::fs;
+use std::fs::DirEntry;
 use std::path::PathBuf;
 
 mod directory_files;
 use directory_files::*;
 
 mod file_comparable;
-use file_comparable::*;
 
 mod directory_comparator;
+use directory_comparator::*;
 
 /// The Docopt usage string
 const USAGE: &'static str = "
@@ -56,60 +56,29 @@ fn main() {
     fs::read_dir(&args.arg_dir1).expect("Directory cannot be read!");
     fs::read_dir(&args.arg_dir2).expect("Directory cannot be read!");
 
-    // Main logic
-    // (We would ideally DRY-out the line that calls the compare function, but because then the let binding would need to hold FileComparable's of different types, it's hard to do.)
-    match args.flag_trivial {
-        true => {
-            let mut trivial_comparator = file_comparable::TrivialComparator::new();
-            compare(&mut trivial_comparator, &args.arg_dir1, &args.arg_dir2)
-        },
-        _ => {
-            let mut md5_comparator = file_comparable::Md5Comparator::new();
-            compare(&mut md5_comparator, &args.arg_dir1, &args.arg_dir2)
-        }
+    // Main logic: using dynamic dispatch
+    // (I don't feel too bad about boxing here because this is essentially a singleton.)
+    let mut program : Box<DirectoryComparator> = if args.flag_trivial {
+        let trivial_comparator = file_comparable::TrivialComparator::new();
+        Box::new(DirectoryComparatorWithFileComparator::new(trivial_comparator))
+    } else {
+        let md5_comparator = file_comparable::Md5Comparator::new();
+        Box::new(DirectoryComparatorWithFileComparator::new(md5_comparator))
+    };
+
+    let superset_dirpath = PathBuf::from(&args.arg_dir2);
+    // eww... why do we have to coerce these Box types again?
+    let mut superset_iter : Box<Iterator<Item=DirEntry>> = Box::new(DirectoryFiles::new(&superset_dirpath));
+
+    let subset_dirpath = PathBuf::from(&args.arg_dir1);
+    let mut subset_iter : Box<Iterator<Item=DirEntry>> = Box::new(DirectoryFiles::new(&subset_dirpath)); // mut needed for .by_ref
+
+    let result = program.report_missing(&mut subset_iter, &mut superset_iter);
+    
+    // View layer (printing)
+    for missing_file in result.iter() {
+        println!("Could not find {} in {}", missing_file.display(), superset_dirpath.display());
     }
-}
 
-// We are extracting the main logic to this function, where the generic types will not interfere
-fn compare<C: FileComparable>(comparator: &mut C, dir1: &String, dir2: &String) {
-    // We are going to construct a map of comparable -> file for every file in our superset directory
-    let mut superset = BTreeMap::new();
-
-    let superset_dirpath = PathBuf::from(&dir2);
-    let mut superset_iter = DirectoryFiles::new(&superset_dirpath);
-
-    //let mut comparator = comparator_cons();
-
-    for path in superset_iter.by_ref() {
-        let path = path.path();
-        match comparator.get_key(&path) {
-            Some(hashed) => { superset.insert(hashed, path); },
-            None => {}
-        };
-    }
-    println!("{}", superset_iter);
-
-    // And we are going to check it against every file in the subset directory
-    let mut num_missing = 0;
-    let subset_dirpath = PathBuf::from(&dir1);
-    let mut subset_iter = DirectoryFiles::new(&subset_dirpath); // mut needed for .by_ref
-    for path in subset_iter.by_ref() {
-        let path = path.path();
-        match comparator.get_key(&path) {
-            Some(hashed) => {
-                match superset.get(&hashed) {
-                    Some(_) => {},
-                    None => {
-                        num_missing+=1;
-                        println!("Could not find {} in {}", path.display(), superset_dirpath.display());
-                    }
-                }
-            },
-            None => {}
-        };
-    }
-    println!("{}", subset_iter);
-
-    // Final state
-    println!("We are missing {} files in {}", num_missing, superset_dirpath.display());
+    println!("\nWe are missing {} files in {}", result.len(), superset_dirpath.display());
 }
