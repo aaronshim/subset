@@ -1,5 +1,6 @@
+#[macro_use]
+extern crate serde_derive;
 extern crate docopt;
-extern crate rustc_serialize;
 
 use docopt::Docopt;
 use std::fs;
@@ -38,7 +39,7 @@ Common options:
 // We should think about moving away from DocOpt soon since it uses RustcDecodable,
 //  which is deprecated in favor of serde?
 /// Parsing comand line arguments here
-#[derive(Debug, RustcDecodable)]
+#[derive(Debug, Deserialize)]
 struct Args {
     arg_dir1: String,
     arg_dir2: String,
@@ -52,9 +53,9 @@ struct Args {
 /// This should be the UI layer as much as possible-- it parses the command line arguments,
 /// hands it off to our business logic, and then collects the answers back and print them.
 fn main() {
-    let args: Args = Docopt::new(USAGE).and_then(|d| d.decode()).unwrap_or_else(
-        |e| e.exit(),
-    );
+    let args: Args = Docopt::new(USAGE)
+        .and_then(|d| d.deserialize())
+        .unwrap_or_else(|e| e.exit());
 
     println!("Comparing {} with {}", args.arg_dir1, args.arg_dir2);
 
