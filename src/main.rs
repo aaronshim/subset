@@ -87,11 +87,12 @@ fn main() {
         Box::new(DirectoryFiles::new(&subset_dirpath)); // mut needed for .by_ref
 
     if args.flag_bidirectional {
-        let (subset_result, superset_result) =
+        // Run program
+        let (subset_missing_result, superset_missing_result) =
             program.report_missing_bidirectional(&mut subset_iter, &mut superset_iter);
 
         // View layer (printing)
-        for missing_file in subset_result.iter() {
+        for missing_file in subset_missing_result.iter() {
             println!(
                 "Could not find {} in {}",
                 missing_file.display(),
@@ -101,11 +102,11 @@ fn main() {
 
         println!(
             "\nWe are missing {} files in {}\n",
-            subset_result.len(),
+            subset_missing_result.len(),
             superset_dirpath.display()
         );
 
-        for missing_file in superset_result.iter() {
+        for missing_file in superset_missing_result.iter() {
             println!(
                 "Could not find {} in {}",
                 missing_file.display(),
@@ -115,7 +116,7 @@ fn main() {
 
         println!(
             "\nWe are missing {} files in {}",
-            superset_result.len(),
+            superset_missing_result.len(),
             subset_dirpath.display()
         );
     } else {

@@ -80,47 +80,47 @@ pub trait DirectoryComparable {
 
     fn report_missing_bidirectional(
         &mut self,
-        subset_dir: &mut Box<FileIterator>,
-        superset_dir: &mut Box<FileIterator>,
+        left_dir: &mut Box<FileIterator>,
+        right_dir: &mut Box<FileIterator>,
     ) -> (Vec<PathBuf>, Vec<PathBuf>) {
 
         // Make a copy of the superset iterator
-        let mut superset_dir_copy = Vec::new();
-        for item in superset_dir.by_ref() {
-            superset_dir_copy.push(item);
+        let mut right_dir_copy = Vec::new();
+        for item in right_dir.by_ref() {
+            right_dir_copy.push(item);
         }
 
         // Populate the files we want to check against
-        let superset_dir_cloned_iter = superset_dir_copy.into_iter();
+        let right_dir_cloned_iter = right_dir_copy.into_iter();
         // clone before boxing so that we can use it one more time?
-        let mut iter: Box<FileIterator> = Box::new(superset_dir_cloned_iter.clone());
+        let mut iter: Box<FileIterator> = Box::new(right_dir_cloned_iter.clone());
         self.mark_as_seen(&mut iter);
 
         // Prepare our list of unseen
-        let mut result = Vec::new();
+        let mut left_missing_result = Vec::new();
 
-        for path in subset_dir.by_ref() {
+        for path in left_dir.by_ref() {
             match self.exists_in_directory(
                 &path,
                 WhichSet::Right,
                 CacheExistenceQuery::CacheForBidirectional,
             ) {
                 Some(_) => {}
-                None => result.push(path),
+                None => left_missing_result.push(path),
             }
         }
 
-        // Now iterate through the superset_dir
+        // Now iterate through the right_dir
 
-        let mut superset_result = Vec::new();
-        for path in superset_dir_cloned_iter {
+        let mut right_missing_result = Vec::new();
+        for path in right_dir_cloned_iter {
             match self.exists_in_directory(&path, WhichSet::Left, CacheExistenceQuery::DoNotCache) {
                 Some(_) => {}
-                None => superset_result.push(path),
+                None => right_missing_result.push(path),
             }
         }
 
-        (result, superset_result)
+        (left_missing_result, right_missing_result)
     }
 }
 
