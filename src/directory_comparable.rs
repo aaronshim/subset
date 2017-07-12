@@ -54,6 +54,19 @@ pub trait DirectoryComparable {
     }
 }
 
+/// Trivial mock
+pub struct TrivialDirectoryComparable;
+
+impl DirectoryComparable for TrivialDirectoryComparable {
+    #[allow(unused_variables)]
+    fn mark_as_seen(&mut self, dir: &mut Box<FileIterator>) {}
+
+    #[allow(unused_variables)]
+    fn exists_in_directory(&mut self, file: &PathBuf) -> Option<PathBuf> {
+        Some(file.clone())
+    }
+}
+
 /// A directory comparator from a file comparator
 /// (This layer will hide the type information that the file comparators spit out
 ///  as the Ord keys since it is internal to calculating the answer to presence / mapping)

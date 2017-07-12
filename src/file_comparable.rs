@@ -15,15 +15,15 @@ pub trait FileComparable {
 
 // We should move this out to a submodule, maybe? But I can't figure out Rust's module system :(
 
-pub struct Md5Comparator;
+pub struct Md5Comparable;
 
-impl Md5Comparator {
-    pub fn new() -> Md5Comparator {
-        Md5Comparator {}
+impl Md5Comparable {
+    pub fn new() -> Md5Comparable {
+        Md5Comparable {}
     }
 }
 
-impl FileComparable for Md5Comparator {
+impl FileComparable for Md5Comparable {
     type Key = String;
     fn get_key(&mut self, file_path: &PathBuf) -> Option<String> {
         // Yuck! There must be some monadic simplification here!
@@ -48,36 +48,17 @@ impl FileComparable for Md5Comparator {
     }
 }
 
-// To see if our Trait-based strategy pattern will work
-
-pub struct TrivialComparator;
-
-impl TrivialComparator {
-    pub fn new() -> TrivialComparator {
-        TrivialComparator {}
-    }
-}
-
-impl FileComparable for TrivialComparator {
-    type Key = u32;
-    
-    #[allow(unused_variables)]
-    fn get_key(&mut self, file_path: &PathBuf) -> Option<u32> {
-        Some(1)
-    }
-}
-
 // Another one
 
-pub struct FileNameComparator;
+pub struct FileNameComparable;
 
-impl FileNameComparator {
-    pub fn new() -> FileNameComparator {
-        FileNameComparator {}
+impl FileNameComparable {
+    pub fn new() -> FileNameComparable {
+        FileNameComparable {}
     }
 }
 
-impl FileComparable for FileNameComparator {
+impl FileComparable for FileNameComparable {
     type Key = String;
 
     fn get_key(&mut self, file_path: &PathBuf) -> Option<String> {

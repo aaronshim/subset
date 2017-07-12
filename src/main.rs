@@ -64,13 +64,12 @@ fn main() {
     // (I don't feel too bad about boxing here because this is essentially a singleton.)
     let mut program : Box<DirectoryComparable> =
         if args.flag_trivial {
-            let trivial_comparator = file_comparable::TrivialComparator::new();
-            Box::new(DirectoryComparableWithFileComparable::new(trivial_comparator))
+            Box::new(TrivialDirectoryComparable {})
         } else if args.flag_name {
-            let filename_comparator = file_comparable::FileNameComparator::new();
+            let filename_comparator = file_comparable::FileNameComparable::new();
             Box::new(DirectoryComparableWithFileComparable::new(filename_comparator))
         } else {
-            let md5_comparator = file_comparable::Md5Comparator::new();
+            let md5_comparator = file_comparable::Md5Comparable::new();
             Box::new(DirectoryComparableWithFileComparable::new(md5_comparator))
         };
 
