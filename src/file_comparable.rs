@@ -9,7 +9,8 @@ use self::crypto::md5::Md5;
 use self::crypto::digest::Digest;
 
 pub trait FileComparable {
-    type Key : Ord; // What might have to happen is that we need to concretize this into an actual type :(
+    // What might have to happen is that we need to concretize this into an actual type :(
+    type Key: Ord;
     fn get_key(&mut self, file: &PathBuf) -> Option<Self::Key>;
 }
 
@@ -29,7 +30,7 @@ impl FileComparable for Md5Comparable {
         // Yuck! There must be some monadic simplification here!
         match fs::File::open(&file_path) {
             Ok(file) => {
-                
+
                 let mut buf_reader = io::BufReader::new(file);
                 let mut contents = Vec::new();
 
@@ -39,11 +40,25 @@ impl FileComparable for Md5Comparable {
                         sh.input(&contents);
                         //println!("{}", sh.result_str());
                         Some(sh.result_str())
-                    },
-                    Err(msg) => {println!("Cannot read file {} to calculate hash: {}", file_path.display(), msg); None }
+                    }
+                    Err(msg) => {
+                        println!(
+                            "Cannot read file {} to calculate hash: {}",
+                            file_path.display(),
+                            msg
+                        );
+                        None
+                    }
                 }
-            },
-            Err(msg) => { println!("Cannot open file {} to calculate hash: {}", file_path.display(), msg); None }
+            }
+            Err(msg) => {
+                println!(
+                    "Cannot open file {} to calculate hash: {}",
+                    file_path.display(),
+                    msg
+                );
+                None
+            }
         }
     }
 }
@@ -67,10 +82,10 @@ impl FileComparable for FileNameComparable {
             Some(s) => {
                 match s.to_os_string().into_string() {
                     Ok(filename) => Some(filename),
-                    Err(_) => None
+                    Err(_) => None,
                 }
-            },
-            None => None
+            }
+            None => None,
         }
     }
 }

@@ -35,7 +35,8 @@ Common options:
     -b, --bidirectional  Also check whether dir2 is also a subset of dir1 (essentially, set equality) and print out missing lists for both directories.
 ";
 
-// We should think about moving away from DocOpt soon since it uses RustcDecodable, whcih is deprecated in favor of serde?
+// We should think about moving away from DocOpt soon since it uses RustcDecodable,
+//  which is deprecated in favor of serde?
 /// Parsing comand line arguments here
 #[derive(Debug, RustcDecodable)]
 struct Args {
@@ -45,15 +46,15 @@ struct Args {
     flag_verbose: bool,
     flag_trivial: bool,
     flag_name: bool,
-    flag_bidirectional: bool
+    flag_bidirectional: bool,
 }
 
 /// This should be the UI layer as much as possible-- it parses the command line arguments,
 /// hands it off to our business logic, and then collects the answers back and print them.
 fn main() {
-    let args: Args = Docopt::new(USAGE)
-                            .and_then(|d| d.decode())
-                            .unwrap_or_else(|e| e.exit());
+    let args: Args = Docopt::new(USAGE).and_then(|d| d.decode()).unwrap_or_else(
+        |e| e.exit(),
+    );
 
     println!("Comparing {} with {}", args.arg_dir1, args.arg_dir2);
 
@@ -63,49 +64,77 @@ fn main() {
 
     // Main logic: using dynamic dispatch
     // (I don't feel too bad about boxing here because this is essentially a singleton.)
-    let mut program : Box<DirectoryComparable> =
-        if args.flag_trivial {
-            Box::new(TrivialDirectoryComparable {})
-        } else if args.flag_name {
-            let filename_comparator = file_comparable::FileNameComparable::new();
-            Box::new(DirectoryComparableWithFileComparable::new(filename_comparator))
-        } else {
-            let md5_comparator = file_comparable::Md5Comparable::new();
-            Box::new(DirectoryComparableWithFileComparable::new(md5_comparator))
-        };
+    let mut program: Box<DirectoryComparable> = if args.flag_trivial {
+        Box::new(TrivialDirectoryComparable {})
+    } else if args.flag_name {
+        let filename_comparator = file_comparable::FileNameComparable::new();
+        Box::new(DirectoryComparableWithFileComparable::new(
+            filename_comparator,
+        ))
+    } else {
+        let md5_comparator = file_comparable::Md5Comparable::new();
+        Box::new(DirectoryComparableWithFileComparable::new(md5_comparator))
+    };
 
     let superset_dirpath = PathBuf::from(&args.arg_dir2);
     // eww... why do we have to coerce these Box types again?
     // (again, only two of these Box types in existence so not so bad...)
-    let mut superset_iter : Box<Iterator<Item=PathBuf>> = Box::new(DirectoryFiles::new(&superset_dirpath));
+    let mut superset_iter: Box<Iterator<Item = PathBuf>> =
+        Box::new(DirectoryFiles::new(&superset_dirpath));
 
     let subset_dirpath = PathBuf::from(&args.arg_dir1);
-    let mut subset_iter : Box<Iterator<Item=PathBuf>> = Box::new(DirectoryFiles::new(&subset_dirpath)); // mut needed for .by_ref
+    let mut subset_iter: Box<Iterator<Item = PathBuf>> =
+        Box::new(DirectoryFiles::new(&subset_dirpath)); // mut needed for .by_ref
 
     if args.flag_bidirectional {
-        let (subset_result, superset_result) = program.report_missing_bidirectional(&mut subset_iter, &mut superset_iter);
+        let (subset_result, superset_result) =
+            program.report_missing_bidirectional(&mut subset_iter, &mut superset_iter);
 
         // View layer (printing)
         for missing_file in subset_result.iter() {
-            println!("Could not find {} in {}", missing_file.display(), superset_dirpath.display());
+            println!(
+                "Could not find {} in {}",
+                missing_file.display(),
+                superset_dirpath.display()
+            );
         }
 
-        println!("\nWe are missing {} files in {}\n", subset_result.len(), superset_dirpath.display());
+        println!(
+            "\nWe are missing {} files in {}\n",
+            subset_result.len(),
+            superset_dirpath.display()
+        );
 
         for missing_file in superset_result.iter() {
-            println!("Could not find {} in {}", missing_file.display(), subset_dirpath.display());
+            println!(
+                "Could not find {} in {}",
+                missing_file.display(),
+                subset_dirpath.display()
+            );
         }
 
-        println!("\nWe are missing {} files in {}", superset_result.len(), subset_dirpath.display());
+        println!(
+            "\nWe are missing {} files in {}",
+            superset_result.len(),
+            subset_dirpath.display()
+        );
     } else {
         // Run program
         let result = program.report_missing(&mut subset_iter, &mut superset_iter);
 
         // View layer (printing)
         for missing_file in result.iter() {
-            println!("Could not find {} in {}", missing_file.display(), superset_dirpath.display());
+            println!(
+                "Could not find {} in {}",
+                missing_file.display(),
+                superset_dirpath.display()
+            );
         }
 
-        println!("\nWe are missing {} files in {}", result.len(), superset_dirpath.display());
+        println!(
+            "\nWe are missing {} files in {}",
+            result.len(),
+            superset_dirpath.display()
+        );
     }
 }
