@@ -9,7 +9,7 @@ use file_comparable::*;
 // but the refactoring seems way hard when we make this not a concrete type...
 type FileIterator = Iterator<Item=DirEntry>;
 
-pub trait DirectoryComparator {
+pub trait DirectoryComparable {
     // boxing sucks for performance, but there will be maybe 2 FileIterator's over the course of execution
     fn mark_as_seen(&mut self, dir: &mut Box<FileIterator>);
 
@@ -54,45 +54,24 @@ pub trait DirectoryComparator {
     }
 }
 
-/*
-/// Try a trivial mock of the DirectoryComparator
-pub struct TrivialDirectoryComparator;
-
-impl TrivialDirectoryComparator {
-    pub fn new() -> Self {
-        TrivialDirectoryComparator {}
-    }
-}
-
-impl DirectoryComparator for TrivialDirectoryComparator {
-    #[allow(unused_variables)]
-    fn mark_as_seen(&mut self, dir: &mut Box<FileIterator>) {}
-
-    #[allow(unused_variables)]
-    fn exists_in_directory(&mut self, file: &PathBuf) -> Option<PathBuf> {
-        Some(file.clone())
-    }
-}
-*/
-
 /// A directory comparator from a file comparator
 /// (This layer will hide the type information that the file comparators spit out
 ///  as the Ord keys since it is internal to calculating the answer to presence / mapping)
-pub struct DirectoryComparatorWithFileComparator<C : FileComparable> {
+pub struct DirectoryComparableWithFileComparable<C : FileComparable> {
     comp : C,
     superset_map : BTreeMap<C::Key, PathBuf>
 }
 
-impl<C : FileComparable> DirectoryComparatorWithFileComparator<C> {
+impl<C : FileComparable> DirectoryComparableWithFileComparable<C> {
     pub fn new(comparator: C) -> Self {
-        DirectoryComparatorWithFileComparator {
+        DirectoryComparableWithFileComparable {
             comp : comparator,
             superset_map : BTreeMap::new()
         }
     }
 }
 
-impl<C : FileComparable> DirectoryComparator for DirectoryComparatorWithFileComparator<C> {
+impl<C : FileComparable> DirectoryComparable for DirectoryComparableWithFileComparable<C> {
     fn mark_as_seen(&mut self, dir: &mut Box<FileIterator>) {
         for path in dir.by_ref() {
             let path = path.path();
