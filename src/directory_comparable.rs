@@ -1,19 +1,30 @@
 use std::collections::BTreeMap;
-use std::fs::DirEntry;
 use std::path::PathBuf;
 
 use file_comparable::*;
 
 // TODO : We really want this to be
-// trait FileIterator : Iterator<Item=DirEntry> + fmt::Display {}
+// trait FileIterator : Iterator<Item=PathBuf> + fmt::Display {}
 // but the refactoring seems way hard when we make this not a concrete type...
-type FileIterator = Iterator<Item=DirEntry>;
+type FileIterator = Iterator<Item=PathBuf>;
+
+pub enum CacheExistenceQuery {
+    CacheForBidirectional,
+    DoNotCache
+}
+
+pub enum WhichSet {
+    Left,
+    Right
+}
 
 pub trait DirectoryComparable {
     // boxing sucks for performance, but there will be maybe 2 FileIterator's over the course of execution
     fn mark_as_seen(&mut self, dir: &mut Box<FileIterator>);
 
-    fn exists_in_directory(&mut self, file: &PathBuf) -> Option<PathBuf>;
+    fn mark_file_as_seen(&mut self, file: &PathBuf, set: WhichSet);
+
+    fn exists_in_directory(&mut self, file: &PathBuf, set: WhichSet, should_cache: CacheExistenceQuery) -> Option<PathBuf>;
 
     fn build_map(&mut self, subset_dir: &mut Box<FileIterator>, superset_dir: &mut Box<FileIterator>)
         -> BTreeMap<PathBuf, Option<PathBuf>> {
@@ -25,8 +36,7 @@ pub trait DirectoryComparable {
         let mut result = BTreeMap::new();
 
         for path in subset_dir.by_ref() {
-            let path = path.path();
-            let corresponding_path = self.exists_in_directory(&path);
+            let corresponding_path = self.exists_in_directory(&path, WhichSet::Right, CacheExistenceQuery::DoNotCache);
             result.insert(path, corresponding_path);
         }
 
@@ -43,14 +53,51 @@ pub trait DirectoryComparable {
         let mut result = Vec::new();
 
         for path in subset_dir.by_ref() {
-            let path = path.path();
-            match self.exists_in_directory(&path) {
+            match self.exists_in_directory(&path, WhichSet::Right, CacheExistenceQuery::DoNotCache) {
                 Some(_) => {},
                 None => { result.push(path) }
             }
         }
 
         result
+    }
+
+    fn report_missing_bidirectional(&mut self, subset_dir: &mut Box<FileIterator>, superset_dir: &mut Box<FileIterator>)
+        -> (Vec<PathBuf>, Vec<PathBuf>) {
+        
+        // Make a copy of the superset iterator
+        let mut superset_dir_copy = Vec::new();
+        for item in superset_dir.by_ref() {
+            superset_dir_copy.push(item);
+        }
+
+        // Populate the files we want to check against
+        let superset_dir_cloned_iter = superset_dir_copy.into_iter();
+        // clone before boxing so that we can use it one more time?
+        let mut iter : Box<FileIterator> = Box::new(superset_dir_cloned_iter.clone());
+        self.mark_as_seen(&mut iter);
+
+        // Prepare our list of unseen
+        let mut result = Vec::new();
+
+        for path in subset_dir.by_ref() {
+            match self.exists_in_directory(&path, WhichSet::Right, CacheExistenceQuery::CacheForBidirectional) {
+                Some(_) => {},
+                None => { result.push(path) }
+            }
+        }
+
+        // Now iterate through the superset_dir
+
+        let mut superset_result = Vec::new();
+        for path in superset_dir_cloned_iter {
+            match self.exists_in_directory(&path, WhichSet::Left, CacheExistenceQuery::DoNotCache) {
+                Some(_) => {},
+                None => { superset_result.push(path) }
+            }
+        }
+
+        (result, superset_result)
     }
 }
 
@@ -62,7 +109,10 @@ impl DirectoryComparable for TrivialDirectoryComparable {
     fn mark_as_seen(&mut self, dir: &mut Box<FileIterator>) {}
 
     #[allow(unused_variables)]
-    fn exists_in_directory(&mut self, file: &PathBuf) -> Option<PathBuf> {
+    fn mark_file_as_seen(&mut self, file: &PathBuf, set: WhichSet) {}
+
+    #[allow(unused_variables)]
+    fn exists_in_directory(&mut self, file: &PathBuf, set: WhichSet, should_cache: CacheExistenceQuery) -> Option<PathBuf> {
         Some(file.clone())
     }
 }
@@ -72,14 +122,16 @@ impl DirectoryComparable for TrivialDirectoryComparable {
 ///  as the Ord keys since it is internal to calculating the answer to presence / mapping)
 pub struct DirectoryComparableWithFileComparable<C : FileComparable> {
     comp : C,
-    superset_map : BTreeMap<C::Key, PathBuf>
+    left_map : BTreeMap<C::Key, PathBuf>,
+    right_map : BTreeMap<C::Key, PathBuf>
 }
 
 impl<C : FileComparable> DirectoryComparableWithFileComparable<C> {
     pub fn new(comparator: C) -> Self {
         DirectoryComparableWithFileComparable {
             comp : comparator,
-            superset_map : BTreeMap::new()
+            left_map : BTreeMap::new(), // I guess we could only initialize this if needed lazily?
+            right_map : BTreeMap::new()
         }
     }
 }
@@ -87,18 +139,52 @@ impl<C : FileComparable> DirectoryComparableWithFileComparable<C> {
 impl<C : FileComparable> DirectoryComparable for DirectoryComparableWithFileComparable<C> {
     fn mark_as_seen(&mut self, dir: &mut Box<FileIterator>) {
         for path in dir.by_ref() {
-            let path = path.path();
             match self.comp.get_key(&path) {
-                Some(hashed) => { self.superset_map.insert(hashed, path); },
+                Some(hashed) => { self.right_map.insert(hashed, path); },
                 None => {}
             };
         }
     }
 
-    fn exists_in_directory(&mut self, file: &PathBuf) -> Option<PathBuf> {
+    fn mark_file_as_seen(&mut self, file: &PathBuf, set: WhichSet) {
         match self.comp.get_key(&file) {
             Some(hashed) => {
-                match self.superset_map.get(&hashed) {
+                let mut which_map =
+                    match set {
+                        WhichSet::Left => &mut self.left_map,
+                        WhichSet::Right => &mut self.right_map
+                    };
+                which_map.insert(hashed, file.clone());
+            },
+            None => {}
+        };
+    }
+
+    fn exists_in_directory(&mut self, file: &PathBuf, set: WhichSet, should_cache: CacheExistenceQuery) -> Option<PathBuf> {
+        
+        match self.comp.get_key(&file) {
+            Some(hashed) => {
+                match should_cache {
+                    CacheExistenceQuery::CacheForBidirectional => {
+                        let other_set =
+                            match &set {
+                                &WhichSet::Left => WhichSet::Right,
+                                &WhichSet::Right => WhichSet::Left
+                            };
+                        
+                        self.mark_file_as_seen(&file, other_set)
+                    },
+
+                    CacheExistenceQuery::DoNotCache => {}
+                };
+
+                let which_map =
+                    match set {
+                        WhichSet::Left => &mut self.left_map,
+                        WhichSet::Right => &mut self.right_map
+                    };
+
+                match which_map.get(&hashed) {
                     Some(file) => Some(file.clone()),
                     None => None
                 }
@@ -107,4 +193,3 @@ impl<C : FileComparable> DirectoryComparable for DirectoryComparableWithFileComp
         }
     }
 }
-

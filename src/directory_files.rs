@@ -34,9 +34,9 @@ impl DirectoryFiles {
 // Breadth-first trasversal popping off files one at a time
 impl Iterator for DirectoryFiles {
     // may have to be a different representation of file names?
-    type Item = DirEntry;
+    type Item = PathBuf;
 
-    fn next(&mut self) -> Option<DirEntry> {
+    fn next(&mut self) -> Option<PathBuf> {
         match self.queue.pop_front() {
             None => None,
             Some(elem) => {
@@ -46,7 +46,7 @@ impl Iterator for DirectoryFiles {
                     self.next() // we only wanna give out files
                 }
                 else {
-                    Some(elem)
+                    Some(elem.path())
                 }
             }
         }

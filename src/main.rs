@@ -3,7 +3,6 @@ extern crate rustc_serialize;
 
 use docopt::Docopt;
 use std::fs;
-use std::fs::DirEntry;
 use std::path::PathBuf;
 
 mod directory_files;
@@ -16,7 +15,7 @@ use directory_comparable::*;
 
 /// The Docopt usage string
 const USAGE: &'static str = "
-Usage: subset [-q | -v] [-t | -n] <dir1> <dir2>
+Usage: subset [-q | -v] [-t | -n] [-b] <dir1> <dir2>
        subset --help
 
 subset lets you compare two directory structures.
@@ -28,11 +27,12 @@ We are going to check to see that every file under the directory structure in di
 There are multiple definitions of file equality that you can specify using flags, but the default is a MD5 hash of the contents of the file. It is conceivable that you can define a custom equality strategy that relies on other parameters, such as file name, subdirectory location, metadata, EXIF data, etc. The possibilities are endless.
 
 Common options:
-    -h, --help         Show this usage message.
-    -q, --quiet        Do not print all mappings.
-    -v, --verbose      Print all mappings.
-    -t, --trivial      Will swap out the MD5 comparison for a trivial comparison (everything is equal). (This is to test extensibility.)
-    -n, --name         Will swap out the MD5 comparison for a filename comparison
+    -h, --help           Show this usage message.
+    -q, --quiet          Do not print all mappings.
+    -v, --verbose        Print all mappings.
+    -t, --trivial        Will swap out the MD5 comparison for a trivial comparison (everything is equal). (This is to test extensibility.)
+    -n, --name           Will swap out the MD5 comparison for a filename comparison.
+    -b, --bidirectional  Also check whether dir2 is also a subset of dir1 (essentially, set equality) and print out missing lists for both directories.
 ";
 
 // We should think about moving away from DocOpt soon since it uses RustcDecodable, whcih is deprecated in favor of serde?
@@ -44,7 +44,8 @@ struct Args {
     flag_quiet: bool,
     flag_verbose: bool,
     flag_trivial: bool,
-    flag_name: bool
+    flag_name: bool,
+    flag_bidirectional: bool
 }
 
 /// This should be the UI layer as much as possible-- it parses the command line arguments,
@@ -76,17 +77,35 @@ fn main() {
     let superset_dirpath = PathBuf::from(&args.arg_dir2);
     // eww... why do we have to coerce these Box types again?
     // (again, only two of these Box types in existence so not so bad...)
-    let mut superset_iter : Box<Iterator<Item=DirEntry>> = Box::new(DirectoryFiles::new(&superset_dirpath));
+    let mut superset_iter : Box<Iterator<Item=PathBuf>> = Box::new(DirectoryFiles::new(&superset_dirpath));
 
     let subset_dirpath = PathBuf::from(&args.arg_dir1);
-    let mut subset_iter : Box<Iterator<Item=DirEntry>> = Box::new(DirectoryFiles::new(&subset_dirpath)); // mut needed for .by_ref
+    let mut subset_iter : Box<Iterator<Item=PathBuf>> = Box::new(DirectoryFiles::new(&subset_dirpath)); // mut needed for .by_ref
 
-    let result = program.report_missing(&mut subset_iter, &mut superset_iter);
-    
-    // View layer (printing)
-    for missing_file in result.iter() {
-        println!("Could not find {} in {}", missing_file.display(), superset_dirpath.display());
+    if args.flag_bidirectional {
+        let (subset_result, superset_result) = program.report_missing_bidirectional(&mut subset_iter, &mut superset_iter);
+
+        // View layer (printing)
+        for missing_file in subset_result.iter() {
+            println!("Could not find {} in {}", missing_file.display(), superset_dirpath.display());
+        }
+
+        println!("\nWe are missing {} files in {}\n", subset_result.len(), superset_dirpath.display());
+
+        for missing_file in superset_result.iter() {
+            println!("Could not find {} in {}", missing_file.display(), subset_dirpath.display());
+        }
+
+        println!("\nWe are missing {} files in {}", superset_result.len(), subset_dirpath.display());
+    } else {
+        // Run program
+        let result = program.report_missing(&mut subset_iter, &mut superset_iter);
+
+        // View layer (printing)
+        for missing_file in result.iter() {
+            println!("Could not find {} in {}", missing_file.display(), superset_dirpath.display());
+        }
+
+        println!("\nWe are missing {} files in {}", result.len(), superset_dirpath.display());
     }
-
-    println!("\nWe are missing {} files in {}", result.len(), superset_dirpath.display());
 }
