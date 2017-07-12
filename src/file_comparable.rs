@@ -66,3 +66,30 @@ impl FileComparable for TrivialComparator {
         Some(1)
     }
 }
+
+// Another one
+
+pub struct FileNameComparator;
+
+impl FileNameComparator {
+    pub fn new() -> FileNameComparator {
+        FileNameComparator {}
+    }
+}
+
+impl FileComparable for FileNameComparator {
+    type Key = String;
+
+    fn get_key(&mut self, file_path: &PathBuf) -> Option<String> {
+        // Some monadic simplification would be much appreciated here ;)
+        match file_path.file_name() {
+            Some(s) => {
+                match s.to_os_string().into_string() {
+                    Ok(filename) => Some(filename),
+                    Err(_) => None
+                }
+            },
+            None => None
+        }
+    }
+}

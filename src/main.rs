@@ -16,7 +16,7 @@ use directory_comparable::*;
 
 /// The Docopt usage string
 const USAGE: &'static str = "
-Usage: subset [-q | -v] [-t] <dir1> <dir2>
+Usage: subset [-q | -v] [-t | -n] <dir1> <dir2>
        subset --help
 
 subset lets you compare two directory structures.
@@ -32,6 +32,7 @@ Common options:
     -q, --quiet        Do not print all mappings.
     -v, --verbose      Print all mappings.
     -t, --trivial      Will swap out the MD5 comparison for a trivial comparison (everything is equal). (This is to test extensibility.)
+    -n, --name         Will swap out the MD5 comparison for a filename comparison
 ";
 
 // We should think about moving away from DocOpt soon since it uses RustcDecodable, whcih is deprecated in favor of serde?
@@ -42,7 +43,8 @@ struct Args {
     arg_dir2: String,
     flag_quiet: bool,
     flag_verbose: bool,
-    flag_trivial: bool
+    flag_trivial: bool,
+    flag_name: bool
 }
 
 /// This should be the UI layer as much as possible-- it parses the command line arguments,
@@ -60,13 +62,17 @@ fn main() {
 
     // Main logic: using dynamic dispatch
     // (I don't feel too bad about boxing here because this is essentially a singleton.)
-    let mut program : Box<DirectoryComparable> = if args.flag_trivial {
-        let trivial_comparator = file_comparable::TrivialComparator::new();
-        Box::new(DirectoryComparableWithFileComparable::new(trivial_comparator))
-    } else {
-        let md5_comparator = file_comparable::Md5Comparator::new();
-        Box::new(DirectoryComparableWithFileComparable::new(md5_comparator))
-    };
+    let mut program : Box<DirectoryComparable> =
+        if args.flag_trivial {
+            let trivial_comparator = file_comparable::TrivialComparator::new();
+            Box::new(DirectoryComparableWithFileComparable::new(trivial_comparator))
+        } else if args.flag_name {
+            let filename_comparator = file_comparable::FileNameComparator::new();
+            Box::new(DirectoryComparableWithFileComparable::new(filename_comparator))
+        } else {
+            let md5_comparator = file_comparable::Md5Comparator::new();
+            Box::new(DirectoryComparableWithFileComparable::new(md5_comparator))
+        };
 
     let superset_dirpath = PathBuf::from(&args.arg_dir2);
     // eww... why do we have to coerce these Box types again?
